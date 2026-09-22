@@ -1,0 +1,49 @@
+name: Usage Metering & Billing Engine
+description: |
+  Production-grade SaaS billing backend:
+  - Exactly-once metering with idempotent deduplication
+  - Quota enforcement (429/402 status codes)
+  - AI-token pricing with real-world rules
+  - Stripe Checkout + webhook sync (test mode)
+
+base_url: http://localhost:3000
+
+run: |
+  docker compose up -d db && \
+  npm run migrate && \
+  npm run seed && \
+  npm start
+
+seed: npm run seed
+
+test: npm test
+
+endpoints:
+  # Public
+  - GET  /health
+  - GET  /pricing
+
+  # Metering (authenticated)
+  - POST /generate                    (Idempotency-Key required)
+  - GET  /usage
+
+  # Billing (authenticated)
+  - POST /billing/checkout
+  - POST /webhooks/stripe             (Stripe signature required)
+
+requirements:
+  # Metering
+  - "Idempotent usage: Send same request twice with one Idempotency-Key → exactly one event"
+  - "Quota enforcement: Drive tenant to exact limit → boundary request allowed, next rejected (429)"
+
+  # Stripe
+  - "Checkout sync: Complete test Checkout → webhook flips plan Free→Pro"
+  - "Webhook verification: Forged signature → 400; replay → processed once"
+
+  # Pricing
+  - "Token rules: Cached input cheaper, reasoning = output rate, categories separate"
+  - "Integer money: All costs in nano-USD, no floats, proofs in EVIDENCE.md"
+
+  # Data
+  - "Tenants, plans, subscriptions, usage_events tables with correct schema"
+  - "README + setup + architecture diagram + EVIDENCE.md proofs"
