@@ -1,0 +1,44 @@
+name: flyrank-metering
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: metering
+      POSTGRES_PASSWORD: metering
+      POSTGRES_DB: metering
+    ports:
+      - "127.0.0.1:5442:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metering -d metering"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgres://metering:metering@db:5432/metering
+      # Stripe values are read from your git-ignored .env (compose interpolates it).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      CHECKOUT_SUCCESS_URL: ${CHECKOUT_SUCCESS_URL:-http://localhost:3000/health?checkout=success}
+      CHECKOUT_CANCEL_URL: ${CHECKOUT_CANCEL_URL:-http://localhost:3000/health?checkout=cancelled}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

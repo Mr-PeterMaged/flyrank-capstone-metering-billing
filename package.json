@@ -1,0 +1,26 @@
+{
+  "name": "flyrank-capstone-metering-billing",
+  "version": "1.0.0",
+  "description": "Usage metering, quota enforcement, cost calculation and Stripe (test mode) subscription sync.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "seed": "node src/db/seed.js",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "stripe:setup": "node scripts/stripe-setup.js",
+    "webhook:send": "node scripts/send-webhook.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.2",
+    "express": "^5.2.1",
+    "pg": "^8.23.0",
+    "stripe": "^22.6.2",
+    "zod": "^4.6.5"
+  }
+}
