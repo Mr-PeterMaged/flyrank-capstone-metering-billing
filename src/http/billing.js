@@ -53,48 +53,20 @@ export function setupBillingRoutes(app) {
         return res.status(400).json({ error: 'signature_verification_failed' });
       }
 
-      // Process idempotently
-      const result = await withTransaction(async (db) => {
-        // Check if we've already processed this event
+      // Serialize duplicate deliveries and commit the event only with its effects.
+      await withTransaction(async (db) => {
+        await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [event.id]);
         const existing = await webhookRepo.findByStripeEventId(db, event.id);
-        if (existing) {
-          return { processed: true, existing };
-        }
-
-        // Record processing started
-        await webhookRepo.recordWebhookEvent(db, event.id, event.type, 'processing', event.data);
-
-        try {
-          // Process the event
-          await stripeService.processWebhookEvent(db, event);
-
-          // Mark as successful
-          await db.query(
-            `UPDATE webhook_events
-             SET outcome = 'processed'
-             WHERE stripe_event_id = $1`,
-            [event.id]
-          );
-
-          return { processed: false, success: true };
-        } catch (err) {
-          // Mark as failed - Stripe will retry
-          await db.query(
-            `UPDATE webhook_events
-             SET outcome = 'failed'
-             WHERE stripe_event_id = $1`,
-            [event.id]
-          );
-          throw err;
-        }
+        if (existing) return;
+        await stripeService.processWebhookEvent(db, event);
+        await webhookRepo.recordWebhookEvent(db, event.id, event.type, 'processed', event.data);
       });
 
       res.json({ received: true });
     } catch (err) {
       console.error('❌ Webhook processing error:', err.message);
-      // Always return 200 to prevent Stripe retries for processing errors
-      // The error is logged and can be investigated via webhook_events table
-      res.status(200).json({ error: 'processing_failed', message: err.message });
+      // A failed transaction must be retried by Stripe, not acknowledged as delivered.
+      res.status(503).json({ error: 'processing_failed' });
     }
   });
 

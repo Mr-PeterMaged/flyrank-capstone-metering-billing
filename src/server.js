@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
-import express from 'express';
+import { createApp } from './app.js';
 import { config, validateConfig } from './config/index.js';
 import { getPool, closePool } from './db/pool.js';
-import { setupRoutes } from './http/routes.js';
-import { setupBillingRoutes } from './http/billing.js';
-import { errorHandler } from './http/middleware.js';
 
 async function startServer() {
   try {
@@ -18,36 +15,7 @@ async function startServer() {
     const dbCheck = await pool.query('SELECT 1');
     console.log('✅ Database connection OK');
 
-    // Create Express app
-    const app = express();
-
-    // Middleware
-    app.use(express.json());
-
-    // Logging middleware
-    app.use((req, res, next) => {
-      const start = Date.now();
-      res.on('finish', () => {
-        const duration = Date.now() - start;
-        console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
-      });
-      next();
-    });
-
-    // Routes
-    setupRoutes(app);
-    setupBillingRoutes(app);
-
-    // 404
-    app.use((req, res) => {
-      res.status(404).json({
-        error: 'not_found',
-        message: `${req.method} ${req.path} not found`,
-      });
-    });
-
-    // Error handler
-    app.use(errorHandler);
+    const app = createApp();
 
     // Start listening
     const port = config.port;

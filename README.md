@@ -1,3 +1,24 @@
+# LLM Usage Metering & Billing
+
+**Designed and developed by [Peter Maged](https://petermaged.com/).**
+
+Measure AI usage, enforce quotas and reconcile subscription events through an auditable service foundation.
+
+## Product and technical overview
+
+- **Implementation:** Node.js, Express 5, PostgreSQL, exact integer pricing, Stripe test mode.
+- **Deployment:** Vercel frontend with an external backend; [DEPLOYMENT.md](DEPLOYMENT.md) contains exact settings and operational requirements.
+- **Ownership:** Peter Maged's project implementation; third-party libraries and upstream materials retain their attribution.
+- **License:** [LICENSE](LICENSE). Available for portfolio review, evaluation and further development under these terms.
+
+For project enquiries and implementation work: [petermaged.com](https://petermaged.com/).
+
+## Webhook verification
+
+`npm test` runs isolated checks. For the PostgreSQL integration test, migrate a dedicated test database and set `WEBHOOK_TEST_DATABASE_URL` before `npm test`. Never use a production database for tests. Stripe payloads are verified as raw bytes before tenant middleware, and database errors return retryable responses.
+
+## Engineering guide and existing evidence
+
 # 💰 Usage Metering & Billing Engine
 
 A production-grade backend service for SaaS billing: exactly-once metering, quota enforcement, cost calculation, and Stripe subscription sync in test mode. **Money-safe** by design.
