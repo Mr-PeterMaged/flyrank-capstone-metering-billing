@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, cp, readdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, cp, readdir, stat, realpath, lstat, rm } from 'node:fs/promises';
 import path from 'node:path';
 const root = process.cwd();
 const settings = JSON.parse(await readFile(path.join(root, 'deployment.json'), 'utf8'));
@@ -13,10 +13,21 @@ if (settings.backend) {
   if ([process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL].includes(url.host)) throw new Error('BACKEND_ORIGIN must not point to this Vercel project (proxy loop).');
   origin = url.origin;
 }
-// Refuse stale output instead of accidentally publishing a previous build's files.
+// A full repository snapshot may contain output from an earlier build.
+// Resolve and validate the generated directory before removing stale assets.
+const realRoot = await realpath(root);
+const vercelDirectory = path.join(root, '.vercel');
+await mkdir(vercelDirectory, { recursive: true });
+if (await realpath(vercelDirectory) !== path.join(realRoot, '.vercel')) {
+  throw new Error('Refusing to build through a linked .vercel directory.');
+}
 try {
-  if ((await readdir(output)).length) throw new Error('Build output exists. Remove only .vercel/output before rebuilding.');
+  if ((await lstat(output)).isSymbolicLink()) throw new Error('Refusing to replace a linked output directory.');
 } catch (error) { if (error.code !== 'ENOENT') throw error; }
+if (path.resolve(output) !== path.join(path.resolve(root), '.vercel', 'output')) {
+  throw new Error('Unexpected build output path.');
+}
+await rm(output, { recursive: true, force: true });
 await mkdir(staticDir, { recursive: true });
 const extensions = new Set(['.html', '.css', '.js', '.json', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.ico', '.woff', '.woff2']);
 async function copyWeb(source, destination) {
